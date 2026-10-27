@@ -1,0 +1,2 @@
+// ค่าตั้งต้นของแอป อ่านจาก Environment Variables (.env)
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'

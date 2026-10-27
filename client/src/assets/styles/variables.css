@@ -1,0 +1,27 @@
+:root {
+  --pink: #FF4F9A;
+  --pink-light: #FFF5F8;
+  --pink-soft: #FFE1EC;
+  --rose: #E83E8C;
+  --rose-deep: #C2256F;
+  --navy: #20243A;
+  --white: #FFFFFF;
+
+  --ink: #20243A;
+  --muted: #666B85;
+  --line: #F4D6E3;
+  --success: #17835A;
+  --danger: #D12B4F;
+  --warn: #A8650F;
+  --info: #2B63C9;
+
+  --font-display: 'Kanit', 'Sarabun', system-ui, sans-serif;
+  --font-body: 'Sarabun', 'Kanit', system-ui, sans-serif;
+
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 26px;
+  --shadow-sm: 0 2px 8px rgba(32, 36, 58, 0.06);
+  --shadow-md: 0 14px 34px rgba(232, 62, 140, 0.14);
+  --nav-h: 68px;
+}

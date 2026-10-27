@@ -1,0 +1,18 @@
+{
+  "name": "pinkpitch",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PinkPitch – Football Jersey Store (Vue 3 client + Express/PostgreSQL server)",
+  "scripts": {
+    "dev": "node dev.js",
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "db:setup": "npm --prefix server run db:setup",
+    "db:schema": "npm --prefix server run db:schema",
+    "db:seed": "npm --prefix server run db:seed",
+    "db:admin": "npm --prefix server run db:admin",
+    "db:reset": "npm --prefix server run db:reset",
+    "build": "npm --prefix client run build",
+    "test": "npm --prefix server test"
+  }
+}

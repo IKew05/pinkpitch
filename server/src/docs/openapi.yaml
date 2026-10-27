@@ -1,0 +1,570 @@
+openapi: 3.0.3
+info:
+  title: PinkPitch – Football Jersey Store API
+  version: 1.0.0
+  description: |
+    REST API ของร้านเสื้อฟุตบอล PinkPitch (Express + PostgreSQL)
+
+    - Response ทุกตัวใช้รูปแบบ `{ success, message, data }` (เมื่อผิดพลาดจะเป็น `{ success: false, message, errors? }`)
+    - Endpoint ที่ต้อง Login ให้ส่ง Header `Authorization: Bearer <token>` (ได้จาก login/register)
+    - การสั่งซื้อสร้างรายการในระบบเท่านั้น **ไม่มี Payment Gateway** รายการใหม่จึงมีสถานะ `pending`
+servers:
+  - url: /api
+tags:
+  - { name: System }
+  - { name: Auth }
+  - { name: Products }
+  - { name: Transactions }
+  - { name: Admin }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: ไม่พบข้อมูลที่ต้องการ }
+        errors:
+          type: object
+          additionalProperties: { type: string }
+          description: ข้อความผิดพลาดรายฟิลด์ (เฉพาะ 422 และ 409 ที่เกี่ยวกับฟิลด์)
+          example: { email: รูปแบบอีเมลไม่ถูกต้อง }
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 2 }
+        fullName: { type: string, example: Demo Customer }
+        email: { type: string, format: email, example: customer@example.com }
+        role: { type: string, enum: [customer, admin] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AuthResult:
+      type: object
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        token: { type: string, description: JWT }
+    Kit:
+      type: object
+      description: สีสำหรับสร้างภาพเสื้อสำรองบนหน้าเว็บเมื่อไม่มีรูปจริง
+      properties:
+        primary: { type: string, example: '#FFFFFF' }
+        secondary: { type: string, example: '#E3B23C' }
+        pattern: { type: string, enum: [plain, stripes, band, sleeves] }
+        label: { type: string, maxLength: 5, example: RMA }
+    Product:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, example: Real Madrid Home Jersey }
+        teamName: { type: string, example: Real Madrid }
+        season: { type: string, example: 2025/26 }
+        category: { type: string, example: La Liga }
+        description: { type: string }
+        price: { type: number, example: 2490 }
+        sizes: { type: array, items: { type: string }, example: [S, M, L, XL, XXL] }
+        color: { type: string }
+        stock: { type: integer }
+        imageUrl: { type: string, description: ว่างได้ }
+        isActive: { type: boolean }
+        featured: { type: boolean }
+        kit: { $ref: '#/components/schemas/Kit' }
+        sold: { type: integer, description: จำนวนที่ขายได้จริงจากประวัติการซื้อ (ไม่นับรายการที่ยกเลิก) }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProductInput:
+      type: object
+      required: [name, teamName, season, category, price, sizes, stock]
+      properties:
+        name: { type: string }
+        teamName: { type: string }
+        season: { type: string }
+        category: { type: string }
+        description: { type: string }
+        price: { type: number, minimum: 0, description: ทศนิยมไม่เกิน 2 ตำแหน่ง }
+        sizes: { type: array, minItems: 1, items: { type: string } }
+        color: { type: string }
+        stock: { type: integer, minimum: 0 }
+        imageUrl: { type: string, description: 'URL (http/https) หรือพาธที่ขึ้นต้นด้วย / หรือเว้นว่าง' }
+        isActive: { type: boolean, default: true }
+        featured: { type: boolean, default: false }
+        kit: { $ref: '#/components/schemas/Kit' }
+    ProductList:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Product' } }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    TransactionItem:
+      type: object
+      properties:
+        id: { type: integer }
+        productId: { type: integer, nullable: true, description: เป็น null ได้หากสินค้าถูกลบภายหลัง }
+        name: { type: string }
+        teamName: { type: string }
+        season: { type: string }
+        imageUrl: { type: string }
+        kit: { $ref: '#/components/schemas/Kit' }
+        size: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        subtotal: { type: number }
+    Transaction:
+      type: object
+      properties:
+        id: { type: integer }
+        orderNumber: { type: string, example: PP-20261015-000012 }
+        userId: { type: integer }
+        customerName: { type: string }
+        status: { type: string, enum: [pending, paid, shipped, completed, cancelled] }
+        totalAmount: { type: number, description: ยอดรวมที่ Backend คำนวณจากราคาจริงในฐานข้อมูล }
+        itemCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TransactionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Transaction'
+        - type: object
+          properties:
+            items: { type: array, items: { $ref: '#/components/schemas/TransactionItem' } }
+    AdminUser:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            transactionCount: { type: integer }
+            totalSpent: { type: number, description: รวมเฉพาะรายการที่ไม่ถูกยกเลิก }
+    Dashboard:
+      type: object
+      properties:
+        productCount: { type: integer }
+        activeProductCount: { type: integer }
+        outOfStockCount: { type: integer }
+        userCount: { type: integer }
+        customerCount: { type: integer }
+        transactionCount: { type: integer }
+        totalOrderValue: { type: number, description: มูลค่ารวมของคำสั่งซื้อที่ไม่ถูกยกเลิก (ไม่ใช่ยอดชำระเงินจริง) }
+        recentTransactions: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+  responses:
+    Unauthorized:
+      description: ยังไม่ได้เข้าสู่ระบบ หรือ Token ไม่ถูกต้อง/หมดอายุ
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: กรุณาเข้าสู่ระบบก่อนใช้งาน } } }
+    Forbidden:
+      description: ไม่มีสิทธิ์ (ต้องเป็น admin)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้ } } }
+    NotFound:
+      description: ไม่พบข้อมูล
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: ไม่พบข้อมูลที่ต้องการ } } }
+    Validation:
+      description: ข้อมูลที่ส่งมาไม่ถูกต้อง
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: ข้อมูลที่ส่งมาไม่ถูกต้อง, errors: { email: รูปแบบอีเมลไม่ถูกต้อง } } } }
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: ตรวจสอบสถานะ Backend และฐานข้อมูล
+      responses:
+        '200':
+          description: ระบบและฐานข้อมูลปกติ
+          content:
+            application/json:
+              example: { success: true, message: ระบบทำงานปกติ, data: { status: ok, database: up, uptimeSeconds: 42 } }
+        '503':
+          description: เชื่อมต่อฐานข้อมูลไม่ได้
+          content:
+            application/json:
+              example: { success: false, message: เชื่อมต่อฐานข้อมูลไม่ได้, data: { status: degraded, database: down } }
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: สมัครสมาชิก (role เป็น customer เสมอ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, email, password]
+              properties:
+                fullName: { type: string, minLength: 2, example: Demo Customer }
+                email: { type: string, format: email, example: customer@example.com }
+                password: { type: string, minLength: 8, maxLength: 72, example: ChangeThisPassword123 }
+      responses:
+        '201':
+          description: สมัครสำเร็จ (บันทึกลงตาราง users และออก Token ให้)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/AuthResult' }
+        '409':
+          description: อีเมลซ้ำ
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: อีเมลนี้ถูกใช้งานแล้ว, errors: { email: อีเมลนี้ถูกใช้งานแล้ว } } } }
+        '422': { $ref: '#/components/responses/Validation' }
+        '429': { description: ส่งคำขอบ่อยเกินไป }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: เข้าสู่ระบบ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/AuthResult' }
+        '401':
+          description: อีเมลหรือรหัสผ่านไม่ถูกต้อง
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422': { $ref: '#/components/responses/Validation' }
+        '429': { description: ส่งคำขอบ่อยเกินไป }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: ดูข้อมูลผู้ใช้ปัจจุบัน
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Auth]
+      summary: แก้ไขชื่อและอีเมลของตนเอง (แก้ role ไม่ได้)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, email]
+              properties:
+                fullName: { type: string }
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: อีเมลซ้ำ
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422': { $ref: '#/components/responses/Validation' }
+  /products:
+    get:
+      tags: [Products]
+      summary: ดึงรายการสินค้า (ค้นหา กรอง เรียง แบ่งหน้า)
+      description: อ่านจากตาราง products ใน PostgreSQL ผู้ใช้ทั่วไปเห็นเฉพาะสินค้าที่เปิดขาย
+      parameters:
+        - { name: search, in: query, schema: { type: string }, description: ค้นหาจากชื่อเสื้อหรือชื่อทีม }
+        - { name: team, in: query, schema: { type: string }, description: ชื่อทีมแบบตรงตัว }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: size, in: query, schema: { type: string }, example: M }
+        - { name: minPrice, in: query, schema: { type: number } }
+        - { name: maxPrice, in: query, schema: { type: number } }
+        - { name: sort, in: query, schema: { type: string, enum: [price_asc, price_desc] }, description: เว้นว่าง = เรียงตาม id }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 12, minimum: 1, maximum: 1000 } }
+        - { name: includeInactive, in: query, schema: { type: boolean }, description: 'true = รวมสินค้าที่ปิดขาย (มีผลเฉพาะ Admin ที่ส่ง Token)' }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/ProductList' }
+        '422': { $ref: '#/components/responses/Validation' }
+    post:
+      tags: [Products]
+      summary: เพิ่มสินค้า (Admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProductInput' } } }
+      responses:
+        '201':
+          description: สร้างสำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Product' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: ชื่อสินค้าซ้ำในฤดูกาลเดียวกัน, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Validation' }
+  /products/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Products]
+      summary: ดูรายละเอียดสินค้า
+      description: สินค้าที่ปิดขายจะเห็นได้เฉพาะ Admin (คนอื่นได้ 404)
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Product' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Validation' }
+    put:
+      tags: [Products]
+      summary: แก้ไขสินค้า (Admin) ส่งเฉพาะฟิลด์ที่ต้องการแก้ได้
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProductInput' } } }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Product' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: ชื่อสินค้าซ้ำในฤดูกาลเดียวกัน, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Validation' }
+    delete:
+      tags: [Products]
+      summary: ลบสินค้า (Admin) — ถ้าเคยมีคนซื้อแล้วจะปิดการขายแทน
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean }
+                      deactivated: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /transactions:
+    post:
+      tags: [Transactions]
+      summary: สร้างรายการสั่งซื้อ
+      description: |
+        รับเฉพาะ productId / size / quantity ราคาและยอดรวมคำนวณจากฐานข้อมูลเอง
+        ทำงานใน Database Transaction เดียว: ล็อกแถวสินค้า → ตรวจสต็อก → บันทึก transactions + transaction_items → ตัดสต็อก
+        หากขั้นตอนใดล้มเหลวจะ Rollback ทั้งหมด สถานะเริ่มต้นเป็น `pending` (ไม่มีการชำระเงินจริง)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [productId, size, quantity]
+                    properties:
+                      productId: { type: integer }
+                      size: { type: string }
+                      quantity: { type: integer, minimum: 1, maximum: 100 }
+            example: { items: [{ productId: 1, size: L, quantity: 2 }, { productId: 4, size: M, quantity: 1 }] }
+      responses:
+        '201':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/TransactionDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: สินค้าไม่พร้อมจำหน่ายหรือสต็อกไม่พอ (ไม่มีการบันทึกข้อมูลใด ๆ)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { success: false, message: Real Madrid Home Jersey มีสินค้าไม่เพียงพอ (เหลือ 1 ตัว) } } }
+        '422': { $ref: '#/components/responses/Validation' }
+    get:
+      tags: [Transactions]
+      summary: ดูรายการสั่งซื้อของฉัน (ใหม่ไปเก่า)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /transactions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Transactions]
+      summary: ดูรายละเอียดรายการสั่งซื้อ (เจ้าของรายการหรือ Admin เท่านั้น)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/TransactionDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: รายชื่อสมาชิกพร้อมจำนวนรายการซื้อและยอดซื้อรวม (Admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/users/{userId}/transactions:
+    get:
+      tags: [Admin]
+      summary: ประวัติการซื้อของสมาชิกที่เลือก (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/User' }
+                      transactions: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/transactions:
+    get:
+      tags: [Admin]
+      summary: รายการสั่งซื้อทั้งหมดของทุกสมาชิก ใหม่ไปเก่า (Admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 100, minimum: 1, maximum: 500 } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, paid, shipped, completed, cancelled] }, description: กรองตามสถานะ }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Validation' }
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: ข้อมูลสรุปสำหรับ Dashboard (Admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Dashboard' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }

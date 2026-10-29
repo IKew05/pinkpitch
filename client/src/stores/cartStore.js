@@ -1,4 +1,5 @@
 import { reactive, watch } from 'vue'
+import api from '../services/api'
 
 const KEY = 'pinkpitch_cart_v1'
 const load = () => {
@@ -10,8 +11,33 @@ const load = () => {
 
 export const cartStore = reactive({
   items: load(),
+  serverAvailable: true,
   get count() { return this.items.reduce((s, i) => s + i.quantity, 0) },
   get total() { return this.items.reduce((s, i) => s + i.quantity * i.price, 0) },
+
+  // ตรวจสอบสินค้าในตะกร้ากับฐานข้อมูลภายนอก (PostgreSQL) จริงทุกครั้ง
+  async syncWithDatabase() {
+    if (!this.items.length) return
+    try {
+      const res = await api.get('/products', { params: { limit: 1000 } })
+      this.serverAvailable = true
+      const activeProducts = new Map((res.data.items || []).map((p) => [p.id, p]))
+      
+      // กรองสินค้าที่ถูกลบออกจาก PostgreSQL หรือไม่ได้เปิดการขายออกทันที
+      this.items = this.items.filter((item) => {
+        const prod = activeProducts.get(item.productId)
+        if (!prod || !prod.isActive) return false
+        item.price = prod.price
+        item.stock = prod.stock
+        item.name = prod.name
+        item.teamName = prod.teamName
+        item.imageUrl = prod.imageUrl
+        return true
+      })
+    } catch {
+      this.serverAvailable = false
+    }
+  },
 
   // เพิ่มสินค้าลงตะกร้า พร้อมตรวจสอบไซซ์และสต็อก คืนค่า { ok, message }
   add(product, size, quantity = 1) {

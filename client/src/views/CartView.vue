@@ -1,4 +1,5 @@
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ShoppingCart } from 'lucide-vue-next'
 import CartItem from '../components/CartItem.vue'
@@ -8,13 +9,21 @@ import { formatBaht } from '../utils/format'
 
 const router = useRouter()
 const checkout = () => router.push('/checkout')
+
+onMounted(() => {
+  cartStore.syncWithDatabase()
+})
 </script>
 
 <template>
   <div class="page container">
     <div class="page-head"><h1>ตะกร้าสินค้า</h1><p v-if="cartStore.items.length">{{ cartStore.count }} ชิ้นในตะกร้า</p></div>
 
-    <EmptyState v-if="!cartStore.items.length" title="ตะกร้าของคุณยังว่างอยู่" text="เลือกเสื้อทีมที่ชอบแล้วเพิ่มลงตะกร้าได้เลย">
+    <EmptyState v-if="!cartStore.serverAvailable" error title="ไม่สามารถเชื่อมต่อฐานข้อมูลภายนอกได้" text="กรุณาเปิด PostgreSQL / pgAdmin และเซิร์ฟเวอร์ Backend เพื่อใช้งานระบบตะกร้าและสั่งซื้อ">
+      <button class="btn btn-primary" @click="cartStore.syncWithDatabase()">ลองเชื่อมต่อใหม่อีกครั้ง</button>
+    </EmptyState>
+
+    <EmptyState v-else-if="!cartStore.items.length" title="ตะกร้าของคุณยังว่างอยู่" text="เลือกเสื้อทีมที่ชอบแล้วเพิ่มลงตะกร้าได้เลย">
       <RouterLink to="/products" class="btn btn-primary"><ShoppingCart :size="18" /> เริ่มเลือกสินค้า</RouterLink>
     </EmptyState>
 

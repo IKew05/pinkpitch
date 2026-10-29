@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, ShieldCheck } from 'lucide-vue-next'
+import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Database, RefreshCw } from 'lucide-vue-next'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { productService } from '../services/productService'
 import { formatBaht } from '../utils/format'
 
 const products = ref([])
 const loading = ref(true)
+const error = ref('')
 const current = ref(0)
 const transitioning = ref(false)
 const direction = ref('next')
@@ -14,12 +15,14 @@ let timer = null
 
 async function load() {
   loading.value = true
+  error.value = ''
   try {
     const res = await productService.list({ pageSize: 1000 })
-    // Only show items that have images
+    // แสดงเฉพาะสินค้าจากฐานข้อมูลภายนอก
     products.value = (res.items || []).filter(p => p.imageUrl)
-  } catch {
-    /* fallback empty */
+  } catch (err) {
+    error.value = err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'
+    products.value = []
   } finally {
     loading.value = false
   }
@@ -198,6 +201,24 @@ function manualNav(fn) {
         </div>
       </div>
     </template>
+
+    <!-- เมื่อโปรแกรมไม่เปิด หรือยังไม่ได้เชื่อมต่อ pgAdmin / PostgreSQL จะไม่แสดงข้อมูลเสื้อใดๆ -->
+    <div v-else class="empty-billboard-wrap">
+      <div class="empty-billboard-card">
+        <div class="empty-badge">
+          <Database :size="15" /> PostgreSQL / pgAdmin
+        </div>
+        <h2 class="empty-title">
+          {{ error ? 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลภายนอกได้' : 'ไม่พบข้อมูลสินค้าในฐานข้อมูล' }}
+        </h2>
+        <p class="empty-desc">
+          {{ error ? error + ' — กรุณาเปิดโปรแกรม PostgreSQL / pgAdmin และเซิร์ฟเวอร์ Backend เพื่อดึงข้อมูลเสื้อ' : 'ระบบเชื่อมต่อกับฐานข้อมูล SQL ภายนอกโดยตรง ไม่มีการเก็บข้อมูลเสื้อไว้ในโค้ด' }}
+        </p>
+        <button class="btn btn-primary empty-btn" @click="load">
+          <RefreshCw :size="16" /> ลองเชื่อมต่อใหม่อีกครั้ง
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -762,5 +783,63 @@ function manualNav(fn) {
   .counter-indicator {
     justify-content: center;
   }
+}
+
+/* ── Empty Billboard State (เมื่อไม่เปิดฐานข้อมูล หรือไม่มีสินค้า) ── */
+.empty-billboard-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  position: relative;
+  z-index: 2;
+}
+
+.empty-billboard-card {
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 79, 154, 0.2);
+  border-radius: 24px;
+  padding: 44px 32px;
+  box-shadow: 0 16px 40px rgba(255, 79, 154, 0.08);
+}
+
+.empty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 79, 154, 0.1);
+  color: var(--rose-deep);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+.empty-desc {
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
 }
 </style>

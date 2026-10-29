@@ -2,7 +2,7 @@ import axios from 'axios'
 import { API_BASE_URL } from '../config'
 import { getToken } from '../utils/tokenStorage'
 
-// Axios Instance กลางสำหรับเรียก REST API จริง (ใช้เมื่อ VITE_USE_MOCK_API=false)
+// Axios Instance สำหรับเรียก REST API ไปยังเซิร์ฟเวอร์ฐานข้อมูล PostgreSQL / pgAdmin
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,

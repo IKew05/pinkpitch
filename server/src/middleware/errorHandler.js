@@ -14,6 +14,14 @@ export const errorHandler = (err, req, res, next) => {
   // JSON body เสีย หรือใหญ่เกินไป
   if (err.type === 'entity.parse.failed') return res.status(400).json({ success: false, message: 'รูปแบบ JSON ไม่ถูกต้อง' })
   if (err.type === 'entity.too.large') return res.status(413).json({ success: false, message: 'ข้อมูลที่ส่งมามีขนาดใหญ่เกินไป' })
+  // PostgreSQL: connection error (เช่น ยังไม่ได้เปิด PostgreSQL / pgAdmin)
+  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === '57P01' || err.code === '28P01' || err.message?.includes('ECONNREFUSED') || err.message?.includes('Connection terminated')) {
+    return res.status(503).json({
+      success: false,
+      message: 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลภายนอก (PostgreSQL / pgAdmin) ได้ กรุณาตรวจสอบว่าเปิด PostgreSQL / pgAdmin แล้ว',
+    })
+  }
+
   // PostgreSQL: unique / check / foreign key / invalid input
   if (err.code === '23505') return res.status(409).json({ success: false, message: 'ข้อมูลนี้มีอยู่ในระบบแล้ว' })
   if (err.code === '23514' || err.code === '23503' || err.code === '22P02' || err.code === '22003') {

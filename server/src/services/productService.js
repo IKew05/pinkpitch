@@ -13,7 +13,7 @@ const SELECT_PRODUCT = `
 
 const escapeLike = (s) => s.replace(/[\\%_]/g, (c) => `\\${c}`)
 
-export async function listProducts(q, { includeInactive }) {
+export async function listProducts(q, { includeInactive } = {}) {
   const where = []
   const params = []
   const add = (sql, value) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)) }
@@ -40,7 +40,7 @@ export async function listProducts(q, { includeInactive }) {
   return { items: rows.map(toProduct), total, page: q.page, pageSize: q.limit }
 }
 
-export async function getProduct(id, { includeInactive }) {
+export async function getProduct(id, { includeInactive } = {}) {
   const { rows } = await query(`${SELECT_PRODUCT} WHERE p.id = $1`, [id])
   if (!rows[0] || (!rows[0].is_active && !includeInactive)) throw new AppError(404, 'ไม่พบสินค้าที่ต้องการ')
   return toProduct(rows[0])

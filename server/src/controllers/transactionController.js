@@ -11,3 +11,7 @@ export const list = asyncHandler(async (req, res) => {
 export const getOne = asyncHandler(async (req, res) => {
   ok(res, await txns.getTransactionForUser(Number(req.params.id), req.user), 'ดึงรายละเอียดการสั่งซื้อสำเร็จ')
 })
+export const updateStatus = asyncHandler(async (req, res) => {
+  const updated = await txns.updateTransactionStatus(Number(req.params.id), req.body.status, req.user)
+  ok(res, updated, `อัปเดตสถานะเป็น ${req.body.status} สำเร็จ`)
+})

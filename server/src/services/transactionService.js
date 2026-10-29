@@ -71,3 +71,25 @@ export async function getTransactionForUser(id, user) {
   if (!detail || (detail.userId !== user.id && user.role !== 'admin')) throw new AppError(404, 'ไม่พบรายการสั่งซื้อ')
   return detail
 }
+
+export async function updateTransactionStatus(id, newStatus, user) {
+  const { rows } = await query('SELECT * FROM transactions WHERE id = $1', [id])
+  const txn = rows[0]
+  if (!txn) throw new AppError(404, 'ไม่พบรายการสั่งซื้อ')
+  if (user.role !== 'admin' && txn.user_id !== user.id) {
+    throw new AppError(403, 'ไม่มีสิทธิ์แก้ไขสถานะรายการสั่งซื้อนี้')
+  }
+
+  // ลูกค้าทั่วไปกดได้เฉพาะขั้นตอน "ชำระเงินเสร็จเรียบร้อย" (paid) เท่านั้น
+  if (user.role !== 'admin') {
+    if (newStatus !== 'paid') {
+      throw new AppError(403, 'ลูกค้าสามารถกดยืนยันได้เฉพาะขั้นตอน "ชำระเงินเสร็จเรียบร้อย" เท่านั้น (สถานะการจัดส่งจะอัปเดตโดยร้านค้า)')
+    }
+    if (txn.status !== 'pending') {
+      throw new AppError(400, 'รายการนี้ได้รับการชำระเงินเรียบร้อยแล้ว')
+    }
+  }
+
+  await query('UPDATE transactions SET status = $1, updated_at = NOW() WHERE id = $2', [newStatus, id])
+  return fetchDetail({ query }, id)
+}

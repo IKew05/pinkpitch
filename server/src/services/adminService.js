@@ -23,7 +23,7 @@ export async function getUserTransactions(userId) {
   return { user: toUser(u.rows[0]), transactions: rows.map((r) => toTransaction(r)) }
 }
 
-export async function listAllTransactions({ limit, status }) {
+export async function listAllTransactions({ limit, status } = {}) {
   const params = [limit]
   let where = ''
   if (status) { params.push(status); where = 'WHERE t.status = $2' }

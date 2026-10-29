@@ -35,7 +35,7 @@ onMounted(load)
             <td class="num">{{ t.itemCount }} ชิ้น</td>
             <td class="num"><strong>{{ formatBaht(t.totalAmount) }}</strong></td>
             <td><span class="badge" :class="statusClass(t.status)">{{ statusLabel(t.status) }}</span></td>
-            <td class="num"><RouterLink :to="`/transactions/${t.id}`" class="btn btn-outline btn-sm">View Details</RouterLink></td>
+            <td class="num"><RouterLink :to="`/transactions/${t.id}`" class="btn btn-outline btn-sm">ดูรายละเอียด</RouterLink></td>
           </tr>
         </tbody>
       </table>

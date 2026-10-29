@@ -485,6 +485,39 @@ paths:
                   data: { $ref: '#/components/schemas/TransactionDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /transactions/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    patch:
+      tags: [Transactions]
+      summary: อัปเดตสถานะรายการสั่งซื้อ (เจ้าของรายการหรือ Admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, paid, shipped, completed, cancelled]
+                  example: paid
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/TransactionDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /admin/users:
     get:
       tags: [Admin]

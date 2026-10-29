@@ -6,9 +6,9 @@ export const formatDate = (iso) =>
 
 export const STATUS_LABELS = {
   pending: 'รอชำระเงิน',
-  paid: 'ชำระแล้ว',
-  shipped: 'จัดส่งแล้ว',
-  completed: 'สำเร็จ',
+  paid: 'ชำระเงินเสร็จเรียบร้อย',
+  shipped: 'กำลังจัดส่ง',
+  completed: 'จัดส่งสำเร็จ',
   cancelled: 'ยกเลิก',
 }
 export const statusLabel = (s) => STATUS_LABELS[s] || s

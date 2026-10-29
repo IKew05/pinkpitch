@@ -14,7 +14,7 @@ export const pool = new pg.Pool({
 })
 
 pool.on('error', (err) => {
-  console.error('[db] idle client error:', err.message)
+  console.error('[db] pgAdmin/PostgreSQL error:', err.message)
 })
 
 export const query = (text, params) => pool.query(text, params)
@@ -36,7 +36,13 @@ export async function withTransaction(fn) {
 }
 
 export async function checkConnection() {
-  await pool.query('SELECT 1')
+  const client = await pool.connect()
+  try {
+    await client.query('SELECT 1')
+    return true
+  } finally {
+    client.release()
+  }
 }
 
 export const closePool = () => pool.end()

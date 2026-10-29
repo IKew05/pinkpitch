@@ -7,11 +7,8 @@
   "scripts": {
     "dev": "node dev.js",
     "install:all": "npm --prefix server install && npm --prefix client install",
-    "db:setup": "npm --prefix server run db:setup",
-    "db:schema": "npm --prefix server run db:schema",
-    "db:seed": "npm --prefix server run db:seed",
     "db:admin": "npm --prefix server run db:admin",
-    "db:reset": "npm --prefix server run db:reset",
+    "db:demo": "npm --prefix server run db:demo",
     "build": "npm --prefix client run build",
     "test": "npm --prefix server test"
   }

@@ -28,9 +28,21 @@ export function createApp() {
   app.get('/api/health', async (req, res) => {
     try {
       await query('SELECT 1')
-      res.json({ success: true, message: 'ระบบทำงานปกติ', data: { status: 'ok', database: 'up', uptimeSeconds: Math.round(process.uptime()) } })
-    } catch {
-      res.status(503).json({ success: false, message: 'เชื่อมต่อฐานข้อมูลไม่ได้', data: { status: 'degraded', database: 'down' } })
+      res.json({
+        success: true,
+        message: 'ระบบทำงานปกติ (เชื่อมต่อ pgAdmin / PostgreSQL สำเร็จ)',
+        data: {
+          status: 'ok',
+          database: 'connected (PostgreSQL / pgAdmin)',
+          uptimeSeconds: Math.round(process.uptime()),
+        },
+      })
+    } catch (err) {
+      res.status(503).json({
+        success: false,
+        message: 'ยังไม่ได้เชื่อมต่อฐานข้อมูล กรุณาตรวจสอบว่าเปิด pgAdmin / PostgreSQL แล้ว',
+        data: { status: 'degraded', database: 'disconnected', error: err.message },
+      })
     }
   })
 

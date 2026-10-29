@@ -17,14 +17,10 @@ export { request, pool, closePool }
 export const app = createApp()
 export const api = () => request(app)
 
-const sql = (f) => fs.readFileSync(new URL(`../database/${f}`, import.meta.url), 'utf8')
-
-// ล้างข้อมูลทั้งหมดในฐานข้อมูลทดสอบ แล้วสร้างตาราง + สินค้าเริ่มต้นใหม่
+// ล้างข้อมูลในฐานข้อมูลทดสอบ
 export async function resetDb() {
   if (!/test/i.test(new URL(process.env.DATABASE_URL).pathname)) throw new Error('ปฏิเสธการล้างฐานข้อมูลที่ชื่อไม่มีคำว่า test')
-  await pool.query('DROP TABLE IF EXISTS transaction_items, transactions, products, users CASCADE')
-  await pool.query(sql('schema.sql'))
-  await pool.query(sql('seed.sql'))
+  await pool.query('TRUNCATE TABLE transaction_items, transactions, products, users RESTART IDENTITY CASCADE')
 }
 
 export async function createAdmin(email = 'admin@test.io', password = 'AdminPass-12345') {

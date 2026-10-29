@@ -12,6 +12,7 @@ const { createApp } = await import('../src/app.js')
 const { pool, closePool } = await import('../src/config/database.js')
 const bcrypt = (await import('bcryptjs')).default
 const fs = await import('node:fs')
+const { initDatabase } = await import('../src/config/initDb.js')
 
 export { request, pool, closePool }
 export const app = createApp()
@@ -20,7 +21,9 @@ export const api = () => request(app)
 // ล้างข้อมูลในฐานข้อมูลทดสอบ
 export async function resetDb() {
   if (!/test/i.test(new URL(process.env.DATABASE_URL).pathname)) throw new Error('ปฏิเสธการล้างฐานข้อมูลที่ชื่อไม่มีคำว่า test')
+  await initDatabase({ seed: false }) // สร้างตารางให้ถ้าฐานข้อมูลทดสอบยังว่าง
   await pool.query('TRUNCATE TABLE transaction_items, transactions, products, users RESTART IDENTITY CASCADE')
+  await initDatabase({ seed: true }) // ใส่สินค้าเริ่มต้นกลับ (products ว่างหลัง TRUNCATE) เหมือนฐานข้อมูลจริง
 }
 
 export async function createAdmin(email = 'admin@test.io', password = 'AdminPass-12345') {

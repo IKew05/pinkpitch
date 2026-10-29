@@ -8,7 +8,7 @@ n
 ```text
 pinkpitch/
 ├── client/                  Frontend (Vue 3 + Vite)  → http://localhost:5173
-│   ├── src/                 components, layouts, views, router, services (Axios + mock), stores, mocks, utils
+│   ├── src/                 components, layouts, views, router, services (Axios), stores, utils
 │   ├── .env.example
 │   └── package.json
 ├── server/                  Backend (Express + PostgreSQL)  → http://localhost:3000
@@ -66,20 +66,36 @@ cp .env.example .env        # Windows: copy .env.example .env
 | `CLIENT_URL`                                      | Origin ของ Frontend ที่อนุญาต CORS (ค่าเริ่มต้น `http://localhost:5173`)                                                                                                                      |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | บัญชี Admin ที่จะสร้างในขั้นตอนถัดไป (รหัสผ่านอย่างน้อย 10 ตัวอักษร)                                                                                             |
 
-## 4) ติดตั้ง Dependencies, สร้างตาราง, ใส่ข้อมูลเริ่มต้น, สร้าง Admin
+## 4) ติดตั้ง Dependencies และสร้าง Admin
 
 ```bash
 npm install
-npm run db:schema     # สร้างตาราง users, products, transactions, transaction_items (รันซ้ำได้ ไม่ลบข้อมูล)
-npm run db:seed       # เพิ่มสินค้าเริ่มต้น 12 รายการ (รันซ้ำได้ ไม่สร้างซ้ำ)
 npm run db:admin      # สร้างบัญชี Admin จาก ADMIN_* ใน .env (hash รหัสผ่านก่อนบันทึก)
 npm run db:demo       # (ไม่บังคับ) สร้างลูกค้าตัวอย่าง demo@pinkpitch.test / Demo@12345 สำหรับสาธิต
 ```
 
-- `db:schema` + `db:seed` รวมกันได้ด้วย `npm run db:setup` (ทั้งหมดรันผ่าน Node ไม่ต้องมี `psql`)
+**ตารางและสินค้าเริ่มต้นสร้างให้อัตโนมัติ** เมื่อเปิด Backend (ขั้นตอนที่ 5) โดยใช้ `server/database/schema.sql` (`CREATE ... IF NOT EXISTS` ไม่ลบข้อมูลเดิม) และถ้าตาราง `products` ว่างจะเพิ่มสินค้าเริ่มต้น 34 รายการจาก `server/database/seed.sql` ให้ 1 ครั้ง ข้อมูลทั้งหมดอยู่ใน PostgreSQL จริง เปิดดูใน pgAdmin ได้ทันที
+
+- สร้างตาราง/สินค้าเองโดยไม่เปิดเซิร์ฟเวอร์: `npm run db:init` (หรือ `db:schema` / `db:seed` / `db:setup`) หรือเปิด `schema.sql` แล้ว `seed.sql` ใน pgAdmin → Query Tool → Execute (F5)
+- ปิดการสร้างอัตโนมัติ: ตั้ง `AUTO_INIT_DB=false` (ปิดเฉพาะการเพิ่มสินค้า: `AUTO_SEED=false`) ใน `server/.env`
 - `db:admin`: ถ้ามีอีเมลนี้อยู่แล้วจะไม่แก้ไข ใช้ `npm run db:admin -- --reset-password` เพื่อตั้งรหัสผ่านใหม่
 - `db:demo` ไม่ทำงานเมื่อ `NODE_ENV=production`
-- **รีเซ็ตฐานข้อมูล (ข้อมูลทั้งหมดหายถาวร):** `npm run db:reset -- --yes` แล้วรัน `npm run db:admin` ใหม่ (ถ้าไม่ใส่ `--yes` จะแสดงคำเตือนและไม่ทำอะไร)
+
+### ดูข้อมูลใน pgAdmin
+
+1. เปิด pgAdmin → เชื่อมต่อ Server เดียวกับที่ใช้ใน `DATABASE_URL` (host, port, ฐานข้อมูล, user ต้องตรงกัน — ตอนเปิด Backend จะพิมพ์ปลายทางที่ใช้อยู่ เช่น `localhost:5432/pinkpitch`)
+2. `Databases → pinkpitch → Schemas → public → Tables` คลิกขวาที่ตาราง → **View/Edit Data → All Rows** (กด Refresh ถ้าเพิ่งมีข้อมูลใหม่)
+3. หรือเปิด Query Tool แล้วรัน:
+
+```sql
+SELECT id, full_name, email, role, created_at FROM users ORDER BY id;      -- สมาชิก (password_hash เป็นค่าที่เข้ารหัสแล้ว)
+SELECT id, name, price, stock, is_active FROM products ORDER BY id;        -- สินค้าและสต็อก
+SELECT id, user_id, total_amount, status, created_at FROM transactions ORDER BY id DESC;   -- คำสั่งซื้อ
+SELECT * FROM transaction_items ORDER BY transaction_id, id;               -- รายการสินค้าในแต่ละคำสั่งซื้อ
+```
+
+ข้อมูลที่บันทึกลงฐานข้อมูลทุกครั้งที่ใช้งานเว็บ: สมัครสมาชิก/แก้โปรไฟล์ (`users`), เพิ่ม/แก้/ลบสินค้าโดย Admin (`products`), กดยืนยันการสั่งซื้อ (`transactions` + `transaction_items` และสต็อกใน `products` ลดลง) และการเปลี่ยนสถานะคำสั่งซื้อ
+ที่เก็บในเบราว์เซอร์ (`localStorage`) มีเพียงตะกร้าที่ยังไม่กดสั่งซื้อ และ Token เข้าสู่ระบบเท่านั้น
 
 ## 5) เปิด Backend
 
@@ -105,11 +121,10 @@ npm install
 npm run dev
 ```
 
-`client/.env` ต้องเป็น:
+`client/.env`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:3000/api
-VITE_USE_MOCK_API=false
 ```
 
 เปิดเว็บที่ **http://localhost:5173** (หลังแก้ `.env` ต้องรัน `npm run dev` ใหม่ ถ้า Vite เปลี่ยนพอร์ต ให้แก้ `CLIENT_URL` ใน `server/.env` ให้ตรงและรีสตาร์ต Backend)
@@ -118,7 +133,7 @@ VITE_USE_MOCK_API=false
 
 ```bash
 npm run install:all   # ติดตั้ง Dependencies ทั้ง server และ client
-npm run db:setup      # = db:schema + db:seed
+npm run db:init       # สร้างตาราง + สินค้าเริ่มต้น (ถ้ายังไม่มี)
 npm run db:admin      # สร้าง Admin
 npm run dev:server    # เปิด Backend   (Terminal 1)
 npm run dev:client    # เปิด Frontend  (Terminal 2)
@@ -178,10 +193,9 @@ $env:TEST_DATABASE_URL="postgresql://postgres:รหัสผ่าน@localhost
 
 ครอบคลุม: สมัคร/อีเมลซ้ำ/hash, Login, สิทธิ์ Admin-Customer, CRUD สินค้า, ค้นหา/กรอง/แบ่งหน้า, ซื้อสินค้า, สต็อกลด/ไม่ติดลบ, ซื้อพร้อมกัน, Rollback เมื่อสต็อกไม่พอ, แยกประวัติการซื้อรายสมาชิก, Dashboard, Health (ฐานข้อมูลล่ม → 503), รีสตาร์ตเซิร์ฟเวอร์จริงแล้วข้อมูลยังอยู่ และ **ตรวจว่าทุก Endpoint ในโค้ดมีใน OpenAPI และในทางกลับกัน**
 
-## 10) โหมดสาธิต (Mock) — ไม่ต้องมี Backend
+## 10) ไม่มีโหมดข้อมูลจำลอง (Mock)
 
-ตั้ง `VITE_USE_MOCK_API=true` ใน `client/.env` แล้วรัน `npm run dev` ใหม่ จะมีแถบ "โหมดสาธิต" ด้านบน ข้อมูลอยู่ใน `localStorage` ของเบราว์เซอร์ **ไม่ได้บันทึกลง PostgreSQL** (บัญชีทดลองในโหมดนี้: `admin@pinkpitch.test` / `admin1234`, `demo@pinkpitch.test` / `demo1234`)
-เมื่อตั้งเป็น `false` ระบบไม่ใช้ข้อมูลจำลองเลย แม้เรียก API ไม่ได้ก็จะแสดง Error State ไม่สลับไปแสดงข้อมูลจำลอง
+เว็บอ่านและบันทึกข้อมูลผ่าน Backend ไปยัง PostgreSQL เท่านั้น ถ้าเรียก API ไม่ได้จะแสดง Error State ไม่สลับไปแสดงข้อมูลจำลอง (ถ้าไฟล์ `client/.env` เดิมของคุณยังมี `VITE_USE_MOCK_API` ลบบรรทัดนั้นทิ้งได้ ไม่มีผลแล้ว)
 
 ## 11) ปัญหาที่พบบ่อย
 
@@ -189,14 +203,14 @@ $env:TEST_DATABASE_URL="postgresql://postgres:รหัสผ่าน@localhost
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend แจ้ง "เชื่อมต่อฐานข้อมูล PostgreSQL ไม่สำเร็จ" | เปิดบริการ PostgreSQL, ตรวจรหัสผ่านใน `DATABASE_URL`, ตรวจว่าสร้างฐานข้อมูล `pinkpitch` แล้ว |
 | Backend แจ้ง "JWT_SECRET ยังเป็นค่าตัวอย่าง"                    | แก้ `JWT_SECRET` ใน `server/.env` ตามหัวข้อ 3                                                                                   |
-| `db:admin` แจ้ง "ยังไม่มีตาราง"                                    | รัน `npm run db:schema` ก่อน                                                                                                             |
+| `db:admin` แจ้ง "ยังไม่มีตาราง"                                    | เปิด Backend 1 ครั้ง หรือรัน `npm run db:init` ก่อน                                                                                                             |
 | `db:admin` แจ้งค่ายังเป็นตัวอย่าง/รหัสผ่านสั้น    | แก้ `ADMIN_EMAIL` / `ADMIN_PASSWORD` (อย่างน้อย 10 ตัว)                                                                        |
 | เว็บขึ้น "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้"   | เปิด Backend, ตรวจ `/api/health`, ตรวจ `VITE_API_BASE_URL` และรัน `npm run dev` ของ Frontend ใหม่                  |
 | Console แจ้ง CORS error                                                           | ให้ `CLIENT_URL` ใน `server/.env` ตรงกับ URL ของเว็บ แล้วรีสตาร์ต Backend                                       |
 | พอร์ต 3000/5173 ถูกใช้งาน                                               | ปิดโปรแกรมที่ใช้พอร์ต หรือเปลี่ยน `PORT` (และ `VITE_API_BASE_URL`)                                         |
-| เห็นแถบ "โหมดสาธิต"                                                   | `VITE_USE_MOCK_API` ยังเป็น `true` — เปลี่ยนเป็น `false` แล้วรัน Frontend ใหม่                                |
+| เปิด pgAdmin แล้วไม่เห็นข้อมูล/ตาราง | ตรวจว่า pgAdmin เชื่อมต่อ Server และฐานข้อมูลเดียวกับ `DATABASE_URL` (ดูบรรทัด `✅ เชื่อมต่อฐานข้อมูลสำเร็จ: host:port/ชื่อฐานข้อมูล` ตอนเปิด Backend) แล้ว Refresh ที่ `Schemas → public → Tables` |
 | ชุดทดสอบไม่ยอมรัน                                                    | ตั้ง `TEST_DATABASE_URL` ให้ชี้ฐานข้อมูลทดสอบที่ชื่อมีคำว่า `test`                                      |
-| ต้องการเริ่มข้อมูลใหม่ทั้งหมด                            | `npm run db:reset -- --yes` แล้ว `npm run db:admin`                                                                                       |
+| ต้องการเริ่มข้อมูลใหม่ทั้งหมด | ใน pgAdmin คลิกขวาที่ฐานข้อมูล → Delete แล้วสร้างฐานข้อมูลชื่อเดิมใหม่ จากนั้นเปิด Backend (สร้างตาราง + สินค้าให้อัตโนมัติ) แล้วรัน `npm run db:admin` (ข้อมูลเดิมทั้งหมดจะหายถาวร) |
 
 ## เอกสารเพิ่มเติม
 

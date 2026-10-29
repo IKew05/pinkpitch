@@ -11,6 +11,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "db:init": "node scripts/initDb.js",
+    "db:schema": "node scripts/runSql.js database/schema.sql",
+    "db:seed": "node scripts/runSql.js database/seed.sql",
+    "db:setup": "npm run db:schema && npm run db:seed",
     "db:admin": "node scripts/createAdmin.js",
     "db:demo": "node scripts/createDemoUser.js",
     "test": "node --test --test-concurrency=1 --test-timeout=60000"

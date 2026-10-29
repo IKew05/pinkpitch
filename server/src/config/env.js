@@ -36,6 +36,9 @@ export const env = {
   databaseUrl: required('DATABASE_URL'),
   jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
+  // สร้างตาราง/สินค้าเริ่มต้นอัตโนมัติเมื่อเริ่ม Backend (ปิดด้วย AUTO_INIT_DB=false / AUTO_SEED=false)
+  autoInitDb: process.env.AUTO_INIT_DB !== 'false',
+  autoSeed: process.env.AUTO_SEED !== 'false',
   bcryptRounds: Number(process.env.BCRYPT_ROUNDS) || 10,
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 30,
   clientUrls: (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean),
